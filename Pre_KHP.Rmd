@@ -1,0 +1,242 @@
+---
+title: "KHP"
+output: html_document
+urlcolor: blue
+bibliography: book.bib
+biblio-style: apalike
+colorlinks: yes
+monofont: "NanumGothic"
+monofontoptions: "Scale=0.7"
+fontsize: 12pt
+header-includes:
+- \usepackage{kotex}
+link-citations: yes
+description: "This is a minimal example of using the bookdown package to write a book. The output format for this example is bookdown::gitbook."
+---
+
+
+```{r eval=TRUE, include= FALSE}
+
+
+library(stringr)
+library(httr)
+library(rvest)
+library(stringr)
+library(readr)
+library(tidyverse)
+library(sas7bdat)
+
+library(plm) 
+library(tseries) # for `adf.test()`
+library(dynlm) #for function `dynlm()`
+library(vars) # for function `VAR()`
+library(nlWaldTest) # for the `nlWaldtest()` function
+library(lmtest) #for `coeftest()` and `bptest()`.
+library(broom) #for `glance(`) and `tidy()`
+library(car) #for `hccm()` robust standard errors
+library(sandwich)
+library(knitr) #for `kable()`
+library(forecast) 
+library(systemfit)
+library(xtable)
+
+library(did) # difference in differences
+library(rdd) # regression discontinuity design
+library(AER) # econometric methods and datasets
+library(caret) # for splitting data, model evaluation metrics
+library(haven) # importing STATA files
+library(jtools) # using summ()
+library(GGally) # nice EDA tool
+library(lmtest) # linear model assumption tests
+library(tseries) # autocorrelation tests
+library(graphics) # visualization
+library(het.test) # heteroskedasticity test
+library(reshape2) # data wrangling
+library(stargazer) # model summaries in nice format
+library(tidymodels) # data preprocessing
+library(robustbase) # heteroskedasticity robust linear models
+
+
+
+
+# or the development version
+# devtools::install_github("rstudio/bookdown")
+
+
+
+```
+
+
+
+# 데이터 전처리
+
+```{r eval = FALSE, echo = FALSE}
+
+library(stringr)
+library(httr)
+library(rvest)
+library(stringr)
+library(readr)
+library(tidyverse)
+library(sas7bdat)
+
+
+setwd(dir = '~/KHP/data/khp_version_1.6_SAS/')
+filenames <- list.files(full.names=TRUE)
+
+
+# 파일 패턴
+pattern_name = '(mt|t)(\\d{2})[_]?(.+).sas7bdat'
+
+
+# 파일 
+
+
+# 먼저 데이터프레임으로 만들 키워드 뽑아내기
+df_names = c()
+filenames_1 = c()
+
+for (filename in filenames){
+  # print(filename)
+  condition_filename = grepl(pattern_name, filename)
+  
+  if(condition_filename){
+    str_df = str_match_all(filename, pattern_name)[[1]][1,4]
+    # str_df = ifelse(str_df == "in", "dfin", str_df)
+    print(str_df)
+    df_names[length(df_names)+1] = str_df
+    filenames_1[length(filenames_1)+1] = filename
+  }
+}
+
+df_names = unique(df_names)
+
+print(df_names)
+
+
+# 데이터프레임이 될만한 파일 찾기
+for (df_name in df_names){
+  print(df_name)
+  str_make_df = paste0("df_", df_name," = data.frame()")
+  eval(parse(text=str_make_df))
+
+  
+  filenames_2 = c()
+  for (filename in filenames_1){
+    print(filename)
+
+    str_df = str_match_all(filename, pattern_name)[[1]][1,4]
+    print(str_df)
+
+    if(str_df == df_name){
+      str_df = str_match_all(filename, pattern_name)[[1]][1,4]
+      filenames_2[length(filenames_2) + 1] = filename
+    }
+  }
+  print(filenames_2)
+  
+  for (filename in filenames_2){
+    print(filename)
+    
+    name = str_match_all(filename, pattern = pattern_name)[[1]][1,4]
+    year = str_match_all(filename, pattern = pattern_name)[[1]][1,3]
+    print(name)
+    
+    df_temp = read.sas7bdat(filename)
+    print(df_temp)
+    df_temp$YEAR = as.numeric(paste0("20",year))
+    
+    str_bind_rows = paste0("df_", name, "= bind_rows(df_", name, ", df_temp)")
+    
+
+    eval(parse(text = str_bind_rows))
+    
+    str_write_csv = paste0("write.csv(df_", name, ",file = '~/KHP/data/df_", name, ".csv', row.names=FALSE)")
+    
+    eval(parse(text = str_write_csv))
+    
+  }
+}
+```
+
+# 불러오기
+
+```{r load_data, eval = FALSE, echo=FALSE, include = FALSE}
+
+rm(list=ls()) #Removes all items in Environment!
+
+
+library(stringr)
+library(httr)
+library(rvest)
+library(stringr)
+library(readr)
+library(tidyverse)
+library(sas7bdat)
+
+setwd(dir = '~/KHP/data/khp_version_1.6_SAS/')
+filenames <- list.files(full.names=TRUE)
+
+# 파일 패턴
+pattern_name = '(mt|t)(\\d{2})[_]?(.+).sas7bdat'
+
+# 파일 
+
+
+# 먼저 데이터프레임으로 만들 키워드 뽑아내기
+df_names = c()
+filenames_1 = c()
+
+for (filename in filenames){
+  # print(filename)
+  condition_filename = grepl(pattern_name, filename)
+  
+  if(condition_filename){
+    str_df = str_match_all(filename, pattern_name)[[1]][1,4]
+    # str_df = ifelse(str_df == "in", "dfin", str_df)
+    # print(str_df)
+    df_names[length(df_names)+1] = str_df
+    filenames_1[length(filenames_1)+1] = filename
+  }
+}
+
+df_names = unique(df_names)
+
+print(df_names)
+
+
+# 데이터프레임이 될만한 파일 찾기
+for (df_name in df_names){
+  print(df_name)
+  str_make_df = paste0("df_", df_name," = data.frame()")
+  eval(parse(text=str_make_df))
+
+  
+  filenames_2 = c()
+  for (filename in filenames_1){
+    # print(filename)
+
+    str_df = str_match_all(filename, pattern_name)[[1]][1,4]
+    # print(str_df)
+
+    if(str_df == df_name){
+      str_df = str_match_all(filename, pattern_name)[[1]][1,4]
+      filenames_2[length(filenames_2) + 1] = filename
+    }
+  }
+  # print(filenames_2)
+}
+  
+
+
+for (df_name in df_names)
+  {
+  str_load_csv = paste0("df_", df_name, "= read.csv('~/KHP/data/df_", df_name, ".csv', header = TRUE)")
+  print(str_load_csv)
+  eval(parse(text = str_load_csv))
+}
+
+setwd('~/KHP/')
+```
+
+
